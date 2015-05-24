@@ -1,0 +1,106 @@
+---
+title: Motor Trend analysis - is manual transmission or automatic transmission better
+  for mpg?
+author: "Filip Wójcik"
+date: "Monday, May 18, 2015"
+output: 
+  pdf_document:
+    keep_tex: true
+fontsize: 10pt
+---
+
+```{r echo=FALSE, include=FALSE}
+library(ggplot2)
+library(GGally)
+library(reshape)
+data(mtcars)
+```
+
+# Summary
+
+After performing analysis, the cocnclusion is, that manual transmission results in a bigger mpg value and consequently is a better option. Change from automatic to manual transmission results in a approximately 2.9358 miles/gallon increase (when taken into account along with vehicle weight and calculate on the 1/4 mile time).
+
+# Exploratory data analysis
+
+Exploratory data analysis plots (for each variable) can be found as **Figure1** in an appendix.
+
+# Is an automatic or manual transmission better for MPG
+
+**Figure2 (boxplot of mpg means between two groups)** and **figure3 (correlation plot)** from appendix shows the difference in mpg values between two groups - with manual and automatic transmission. From the plot we can conclude that **variances are not equal between the groups**. We can **suppose** (judging the data on the plot by eye) that the manual transmission system comes with higher values of mpg.  This leads to two hypotheses:
+
+H0: **mean mpg value is equal** for manual and automatic transmission system
+
+Ha: **mean mpg value is higher** for the manual transmission system
+
+We can perform the following t-test for those:
+
+```{r t_test}
+auto.mtcars <- mtcars[mtcars$am == 0, "mpg"]
+manual.mtcars <- mtcars[mtcars$am == 1, "mpg"]
+t.test(manual.mtcars, auto.mtcars, paired=FALSE, var.equal=FALSE, alternative = "greater")
+```
+
+With p-value of 0.0006868 we can safely reject the null hypothesis and assume, that with manual transmission mpg is higher.
+
+Because will all would like to travel more with the same amout of fuel, we can conclude, that **manual transmission** is better for mpg.
+
+# Quantify the MPG difference between automatic and manual transmissions
+
+To fill this task, regression analysis will be made. The **slope coefficient for "am"** (transmission type) will describe the difference between two types of transmissions. 
+Let's try a simplest possible model:
+```{r simple_model}
+summary(lm(data=mtcars, formula=mpg ~ am))
+```
+P-value of **0.000285** suggests that **am** has significant impact on **mpg** but, this model explains only 35.9% of variance (R-squared, used because with am only model is a single linear regression). More variables (x values) will need to be used, to fill this gap.
+
+Because there are multiple variables, that can (potentially) affect mpg value, a proper model needs to be selected from all possible options. Hovewer, some variables affecting mpg may be **multiplecolinear** - so related one with each other. We have to eliminate them, because they are redundant.
+
+Space limitations for this report does not allow to perform the full analysis step-by-step, but the **algorithm of backwards elimination ** proceeds as follows:
+
+1. Find multiple regression coefficients for the full model (all variables)
+2. Remove each single variable and re-generate models, quantify residuals and adjusted R^2
+3. Generate all possible combinations of 2 variables, iterate through them, and regenerate model, quantify residuals, adjusted R^2 and Akiko Information Criterion (AIC)
+... (proceed with combinations of 3 variables, etc. until only single variable remains)
+4. From all the models - select the one with the best AIC (best-fitting model)
+
+```{r stepwise_model_selection, results='hide'}
+step(object = lm(mtcars$mpg ~ ., data= mtcars), direction = "backward")
+```
+
+The final model selected by stepwise, backwards elimination algorithm is:
+
+**mtcars$mpg ~ wt + qsec + am**
+
+```{r multilinear_model_summary, echo=FALSE}
+model <- lm(data=mtcars, formula = mpg ~ wt + qsec + am)
+summary(model)
+```
+
+This model explains 83.3% of variance and indicates that
+
+**Changing from automatic to manual transmission mode changes the mpg by 2.9358**
+
+## Appendix
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='left'}
+d <- melt(mtcars)
+ggplot(d,aes(x = value)) + 
+    facet_wrap(~variable,scales = "free_x") + 
+    geom_histogram() + ggtitle("Figure 1 - exploratory data analysis plot")
+```
+
+```{r mpg_automatic_vs_manual, echo=FALSE, fig.align='left'}
+ggplot(mtcars, aes(x=factor(am), y=mpg)) + geom_boxplot() + ggtitle("Figure 2 - mpg values in groups with manual and automatic transmission")
+```
+
+```{r mpg_am_correlation_plot, fig.align='left', echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = mtcars, aes(x=am, y=mpg), ) + geom_line() + ggtitle("Figure 3 - mpg and am correlation plot")
+```
+
+```{r final_model_plot_correlation, echo=FALSE, message=FALSE, warning=FALSE}
+GGally::ggpairs(data = mtcars[,c("mpg", "wt", "qsec", "am")], diag=list(continuous="bar", params=c(colour="blue")), lower=list(continuous="smooth"), title="Figure 4-final model plot. Variables correlations")
+```
+
+```{r final_model_plot_fit_results, echo=FALSE, message=FALSE, warning=FALSE, fig.align='left'}
+qplot(x = model$fitted.values, y=model$residuals, xlab = "fitted values", ylab="residuals") + geom_point() + geom_smooth(method="lm") + ggtitle("Figure 5- final model residuals plot")
+```
