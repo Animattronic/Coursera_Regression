@@ -3,9 +3,8 @@ title: Motor Trend analysis - is manual transmission or automatic transmission b
   for mpg?
 author: "Filip Wójcik"
 date: "Monday, May 18, 2015"
-output: 
-  pdf_document:
-    keep_tex: true
+output:
+  word_document: default
 fontsize: 10pt
 ---
 
